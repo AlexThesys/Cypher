@@ -1,4 +1,3 @@
-
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
@@ -77,7 +76,8 @@ int main(int argc, char** argv) {
     if (argc < 4) {
         puts("No tolerance value supplied. Zero tolerance will be used.");
     } else {
-        tolerance = atoi(argv[2]);
+        tolerance = atoi(argv[3]);
+        printf("Tolerance = %d chars.\n", tolerance);
     }
     if (num_chunks <= tolerance) {
         printf("Max tolerance value for this file is: %d\n", num_chunks - 2);
@@ -165,7 +165,7 @@ static cudaError_t bruteforce(uint8_t* buf, uint32_t* stats, int num_threads, in
     }
 
     // Launch a kernel on the GPU with one thread for each element.
-    bruteforce_kernel<<<num_blocks, num_threads>>>(dev_buf, dev_stats, num_chunks);
+    bruteforce_kernel << <num_blocks, num_threads >> > (dev_buf, dev_stats, num_chunks);
 
     // Check for any errors launching the kernel
     cudaStatus = cudaGetLastError();
@@ -173,7 +173,7 @@ static cudaError_t bruteforce(uint8_t* buf, uint32_t* stats, int num_threads, in
         fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
         goto Error;
     }
-    
+
     // cudaDeviceSynchronize waits for the kernel to finish, and returns
     // any errors encountered during the launch.
     cudaStatus = cudaDeviceSynchronize();
@@ -185,7 +185,7 @@ static cudaError_t bruteforce(uint8_t* buf, uint32_t* stats, int num_threads, in
     // reduction stage
     num_blocks /= 2;
     while (num_blocks) {
-        reduction_kernel <<<num_blocks, num_threads >>> (dev_stats);
+        reduction_kernel << <num_blocks, num_threads >> > (dev_stats);
         cudaStatus = cudaGetLastError();
         if (cudaStatus != cudaSuccess) {
             fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
@@ -200,7 +200,7 @@ static cudaError_t bruteforce(uint8_t* buf, uint32_t* stats, int num_threads, in
     }
 
     // Copy output vector from GPU buffer to host memory.
-    cudaStatus = cudaMemcpy(stats, dev_stats, (size_t)(num_threads*BYTE_LIM*sizeof(uint32_t)), cudaMemcpyDeviceToHost);
+    cudaStatus = cudaMemcpy(stats, dev_stats, (size_t)(num_threads * BYTE_LIM * sizeof(uint32_t)), cudaMemcpyDeviceToHost);
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMemcpy failed!");
         goto Error;
@@ -215,7 +215,7 @@ static cudaError_t bruteforce(uint8_t* buf, uint32_t* stats, int num_threads, in
 Error:
     cudaFree(dev_buf);
     cudaFree(dev_stats);
-    
+
     return cudaStatus;
 }
 
@@ -224,20 +224,8 @@ static int parse_args(int argc, char** argv) {
         puts("Provide the filename and key size (either 32, 64, 128 or 256 bytes)!");
         return -1;
     }
-    int num_t;
-    const char* k128 = "128";
-    const char* k256 = "256";
-    const char* k64 = "64";
-    const char* k32 = "32";
-    if (memcmp(&argv[2], k128, 3)) {
-        num_t = 128;
-    } else if (memcmp(&argv[2], k256, 3)) {
-        num_t = 256;
-    } else if (memcmp(&argv[2], k64, 2)) {
-        num_t = 64;
-    } else if (memcmp(&argv[2], k32, 2)) {
-        num_t = 32;
-    } else {
+    int num_t = atoi(argv[2]);
+    if ((num_t != 32) && (num_t != 64) && (num_t != 128) && (num_t != 256)) {
         puts("Key size must be either 32, 64, 128 or 256 bytes!");
         num_t = -1;
     }
@@ -266,7 +254,7 @@ static int read_file(const char* fname, uint8_t** buf, int num_threads)
     }
     const int num_chunks = (int)(flp2((uint32_t)(file_size / num_threads)));  // num_blocks should be power of two for the reduction step
     const int read_size = num_chunks * num_threads;
-    if (!(*buf = (uint8_t*)malloc(read_size))) { 
+    if (!(*buf = (uint8_t*)malloc(read_size))) {
         puts("Buffer allocation failed!");
         fclose(file);
         return -1;
@@ -282,13 +270,13 @@ static int read_file(const char* fname, uint8_t** buf, int num_threads)
     return num_chunks;
 }
 
-void print_stats(const uint32_t *stats, int num_threads, int num_blocks)
+void print_stats(const uint32_t* stats, int num_threads, int num_blocks)
 {
     printf("%d-byte xor encryption key stats:\n", num_threads);
     for (uint16_t i = 0u; i < num_threads; i++) {
         printf("For byte #%d possible char codes are:\t", i);
         for (uint16_t j = 0u; j < BYTE_LIM; j++) {
-            if (stats[i*BYTE_LIM+j] == num_blocks) {
+            if (stats[i * BYTE_LIM + j] >= num_blocks) {
                 printf("%x ", j);
             }
             //printf("%d ", stats[i * BYTE_LIM + j]);

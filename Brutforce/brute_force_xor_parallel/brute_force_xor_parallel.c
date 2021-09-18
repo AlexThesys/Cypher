@@ -127,7 +127,7 @@ void print_stats(const uint32_t* stats, int num_chunks)
     for (uint16_t i = 0u; i < REG_SIZE; i++) {
         printf("For byte #%d possible char codes are:\t", i);
         for (uint16_t j = 0u; j < BYTE_LIM; j++) {
-            if (stats[row_major(j,i)] == num_chunks) {
+            if (stats[row_major(j,i)] >= num_chunks) {
                 printf("%x ", j);
             }
            //printf("%x ", stats[row_major(j,i)]);
