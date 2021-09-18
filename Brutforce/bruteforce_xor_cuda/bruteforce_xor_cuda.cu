@@ -72,6 +72,18 @@ int main(int argc, char** argv) {
         return -1;
     }
 
+    int tolerance = 0;
+
+    if (argc < 4) {
+        puts("No tolerance value supplied. Zero tolerance will be used.");
+    } else {
+        tolerance = atoi(argv[2]);
+    }
+    if (num_chunks <= tolerance) {
+        printf("Max tolerance value for this file is: %d\n", num_chunks - 2);
+        return -1;
+    }
+
     // stats[key_id][char+id]
     uint32_t* stats = (uint32_t*)malloc((size_t)(num_threads * BYTE_LIM * sizeof(uint32_t)));
     if (stats == nullptr) {
@@ -96,7 +108,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    print_stats(stats, num_threads, num_chunks);
+    print_stats(stats, num_threads, num_chunks - tolerance);
 
     free(buf);
     free(stats);
