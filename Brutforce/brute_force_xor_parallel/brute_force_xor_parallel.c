@@ -19,7 +19,7 @@
 
 size_t read_file(const char*, uint8_t**, size_t*);
 size_t calc_alignment(void*, const uint8_t);
-void print_stats(const uint32_t* stats, const size_t);
+void print_stats(const uint32_t* stats, int num_chunks);
 void brute_force_key(const uint8_t*, uint32_t*, const size_t);
 void reduce(uint32_t* stats, size_t num_chunks);
 static void* func(void*);
@@ -36,12 +36,22 @@ int main (int argc, char **argv)
         puts("Provide the filename!");
         return -1;
     }
+    int tolerance = 0;
+    if (argc < 3) {
+        puts("No tolerance value supplied. Zero tolerance will be used.");
+    } else {
+        tolerance = atoi(argv[2]);
+    }
     uint8_t *buf = NULL;
     size_t buf_offset;
     const size_t size = read_file(argv[1], &buf, &buf_offset);
     const uint32_t num_simd_blocks = size / REG_SIZE;
     const uint32_t num_thread_blocks = num_simd_blocks / BYTE_LIM;
-    const uint8_t num_threads = MIN(num_thread_blocks, MAX_THREADS);
+    const int num_chunks = num_threads ? num_threads*(BYTE_LIM-1) : MIN(0xFF, num_simd_blocks);
+    if (num_chunks <= tolerance) {
+        printf("Max tolerance value for this file is: %d\n", num_chunks - 2);
+        return -1;
+    }
     uint32_t *stats = malloc(REG_SIZE*(num_threads+1)*BYTE_LIM*sizeof(uint32_t)); // +1 is to account for alignment
     const size_t stats_offset = calc_alignment(stats, REG_SIZE);
     if (num_threads < 1) {
@@ -62,7 +72,7 @@ int main (int argc, char **argv)
         }
     }
     reduce((uint32_t*)(stats+stats_offset), num_threads);
-    print_stats((uint32_t*)(stats+stats_offset), num_threads ? num_threads*(BYTE_LIM-1) : MIN(0xFF, num_simd_blocks));
+    print_stats((uint32_t*)(stats+stats_offset), num_chunks - tolerance);
     free(buf);
     free(stats);
     return EXIT_SUCCESS;
@@ -110,7 +120,7 @@ size_t read_file(const char *fname, uint8_t **buf, size_t *offset)
     return size;
 }
 
-void print_stats(const uint32_t* stats, const size_t num_chunks)
+void print_stats(const uint32_t* stats, int num_chunks)
 {
     // printf("num blocks: %lu\n", num_blocks);
     printf("%d-byte xor encryption key stats:\n", REG_SIZE);
