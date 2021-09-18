@@ -174,14 +174,6 @@ static cudaError_t bruteforce(uint8_t* buf, uint32_t* stats, int num_threads, in
         goto Error;
     }
 
-    // cudaDeviceSynchronize waits for the kernel to finish, and returns
-    // any errors encountered during the launch.
-    cudaStatus = cudaDeviceSynchronize();
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
-        goto Error;
-    }
-
     // reduction stage
     num_blocks /= 2;
     while (num_blocks) {
@@ -189,11 +181,6 @@ static cudaError_t bruteforce(uint8_t* buf, uint32_t* stats, int num_threads, in
         cudaStatus = cudaGetLastError();
         if (cudaStatus != cudaSuccess) {
             fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
-            goto Error;
-        }
-        cudaStatus = cudaDeviceSynchronize();
-        if (cudaStatus != cudaSuccess) {
-            fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
             goto Error;
         }
         num_blocks /= 2;
