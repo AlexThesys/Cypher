@@ -170,7 +170,7 @@ static cudaError_t bruteforce(uint8_t* buf, uint32_t* stats, int num_threads, in
     // Check for any errors launching the kernel
     cudaStatus = cudaGetLastError();
     if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
+        fprintf(stderr, "bruteforce_kernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
         goto Error;
     }
 
@@ -180,10 +180,16 @@ static cudaError_t bruteforce(uint8_t* buf, uint32_t* stats, int num_threads, in
         reduction_kernel << <num_blocks, num_threads >> > (dev_stats);
         cudaStatus = cudaGetLastError();
         if (cudaStatus != cudaSuccess) {
-            fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
+            fprintf(stderr, "reduction_kernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
             goto Error;
         }
         num_blocks /= 2;
+    }
+
+    cudaStatus = cudaDeviceSynchronize();
+    if (cudaStatus != cudaSuccess) {
+        fprintf(stderr, "Device synchronization failed: %s\n", cudaGetErrorString(cudaStatus));
+        goto Error;
     }
 
     // Copy output vector from GPU buffer to host memory.
